@@ -1,6 +1,6 @@
 # github_manager/authentication.py
-
-class Authentication:
+from authentication_base import AuthenticationBase
+class Authentication(AuthenticationBase):
     @staticmethod
     def get_headers(parameters):
         """
