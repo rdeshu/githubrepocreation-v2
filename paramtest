@@ -1,0 +1,39 @@
+from params_base import ParametersBase
+
+
+class Parameters(ParametersBase):
+    """
+    Concrete implementation of ParametersBase.
+    Stores parameters as private variables for encapsulation.
+    """
+
+    def __init__(self):
+        # Private variables for each parameter
+        self._github_token = None
+        self._repo_name = None
+        self._repo_description = None
+        self._organization_name = None
+
+    def set_params(self, **kwargs):
+        """
+        Sets parameters dynamically from user input.
+        :param kwargs: Dictionary of parameter values.
+        """
+        for key, value in kwargs.items():
+            if not hasattr(self, f"_{key}"):
+                raise KeyError(f"Invalid parameter: {key}")
+            setattr(self, f"_{key}", value)
+
+    def get_param(self, key: str):
+        """
+        Retrieves the value of a parameter by key.
+        :param key: Name of the parameter.
+        :return: Value of the parameter.
+        """
+        attr_name = f"_{key}"
+        if not hasattr(self, attr_name):
+            raise ValueError(f"Parameter '{key}' is not defined.")
+        value = getattr(self, attr_name)
+        if value is None:
+            raise ValueError(f"Parameter '{key}' is not set.")
+        return value
