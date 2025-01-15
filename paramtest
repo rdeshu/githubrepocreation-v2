@@ -1,42 +1,79 @@
-from params_base import ParametersBase
+import requests
 
 
-class Parameters(ParametersBase):
-    """
-    Concrete implementation of ParametersBase.
-    Stores parameters as private variables with strict encapsulation.
-    """
-
+class RepoManager:
     def __init__(self):
-        # Private variables for each parameter (name-mangled with __)
-        self.__github_token = None
-        self.__repo_name = None
-        self.__repo_description = None
-        self.__organization_name = None
+        pass
 
-    def set_params(self, **kwargs):
+    def create_repository(self, url: str, headers: dict, data: dict) -> str:
         """
-        Sets parameters dynamically from user input.
-        :param kwargs: Dictionary of parameter values.
+        Sends the request to create a GitHub repository.
+        :param url: API endpoint URL.
+        :param headers: Authentication headers.
+        :param data: Repository details as payload.
+        :return: URL of the created repository.
         """
-        for key, value in kwargs.items():
-            attr_name = f"_{self.__class__.__name__}__{key}"  # Name mangling
-            if hasattr(self, attr_name):
-                setattr(self, attr_name, value)
-            else:
-                raise KeyError(f"Invalid parameter: {key}")
-
-    def get_param(self, key: str):
-        """
-        Retrieves the value of a parameter by key.
-        :param key: Name of the parameter.
-        :return: Value of the parameter.
-        """
-        attr_name = f"_{self.__class__.__name__}__{key}"  # Name mangling
-        if hasattr(self, attr_name):
-            value = getattr(self, attr_name)
-            if value is None:
-                raise ValueError(f"Parameter '{key}' is not set.")
-            return value
+        response = requests.post(url, json=data, headers=headers)
+        if response.status_code == 201:
+            return response.json()["html_url"]
         else:
-            raise ValueError(f"Parameter '{key}' is not defined.")
+            raise Exception(f"Failed to create repository: {response.status_code}, {response.text}")
+
+from github_manager.github_manager import GitHubManager
+from github_manager.repo_manager import RepoManager
+from authentication import Authentication
+
+
+class GitHubManagerImpl(GitHubManager):
+    def __init__(self, parameters):
+        self.__parameters = parameters
+        self.__repo_manager = RepoManager()
+
+    def create_repository(self) -> str:
+        """
+        Implements the abstract method to create a GitHub repository.
+        Prepares data and calls RepoManager for API interaction.
+
+        :return: URL of the created repository.
+        """
+        # Collect parameters
+        repo_name = self.__parameters.get_param("repo_name")
+        repo_description = self.__parameters.get_param("repo_description")
+        organization_name = self.__parameters.get_param("organization_name")
+        github_token = self.__parameters.get_param("github_token")
+        api_url = "https://api.github.com"
+
+        # Validate repository name
+        if not repo_name:
+            raise ValueError("Repository name is required.")
+
+        # Determine the API endpoint based on the organization name
+        if organization_name:
+            url = f"{api_url}/orgs/{organization_name}/repos"
+        else:
+            url = f"{api_url}/user/repos"
+
+        # Prepare headers and data
+        headers = {
+            "Authorization": f"token {github_token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+        data = {
+            "name": repo_name,
+            "description": repo_description,
+            "private": False,
+        }
+
+        # Call RepoManager to create the repository
+        return self.__repo_manager.create_repository(url, headers, data)
+
+    def run(self):
+        """
+        Implements the abstract method to handle the main workflow.
+        """
+        try:
+            # Create repository
+            repo_url = self.create_repository()
+            print(f"Repository created successfully: {repo_url}")
+        except Exception as e:
+            print(f"Error: {e}")
