@@ -67,3 +67,16 @@ class GitHubManagerImpl(GitHubManager):
             print(f"Repository management completed successfully. Repo URL: {repo_url}")
         except Exception as e:
             print(f"Error: {e}")
+
+
+######
+def repo_exists(self, url: str, headers: dict) -> bool:
+        """
+        Checks if a repository exists by sending a GET request to the GitHub API.
+
+        :param url: URL of the repository.
+        :param headers: Authentication headers.
+        :return: True if the repository exists, False otherwise.
+        """
+        response = requests.get(url, headers=headers)
+        return response.status_code == 200
