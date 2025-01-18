@@ -1,1 +1,69 @@
 
+from github_manager.github_manager import GitHubManager
+from github_manager.repo_manager import RepoManager
+from github_manager.authentication import Authentication
+
+
+class GitHubManagerImpl(GitHubManager):
+    def __init__(self, parameters):
+        self.__parameters = parameters
+        self.__auth = Authentication(self.__parameters)
+        self.__repo_manager = RepoManager()
+
+    def create_repository(self) -> str:
+        """
+        Implements the abstract method to create a GitHub repository.
+        Checks if the repository already exists. If it does, skips creation.
+        Otherwise, calls RepoManager to create the repository and verifies its creation.
+
+        :return: URL of the created repository or existing repository.
+        """
+        # Collect parameters
+        repo_name = self.__parameters.get_param("repo_name")
+        organization_name = self.__parameters.get_param("organization_name")
+        api_url = "https://api.github.com"
+
+        # Validate repository name
+        if not repo_name:
+            raise ValueError("Repository name is required.")
+
+        # Construct the API endpoint URL
+        if organization_name:
+            url = f"{api_url}/orgs/{organization_name}/repos/{repo_name}"
+        else:
+            url = f"{api_url}/user/repos/{repo_name}"
+
+        # Get authentication headers
+        headers = self.__auth.get_headers()
+
+        # Check if repository exists
+        if self.__repo_manager.repo_exists(url, headers):
+            print(f"Repository '{repo_name}' already exists.")
+            return url
+
+        # Repository does not exist, proceed to create it
+        print(f"Repository '{repo_name}' does not exist. Creating it...")
+        create_url = f"{api_url}/orgs/{organization_name}/repos" if organization_name else f"{api_url}/user/repos"
+        data = {
+            "name": repo_name,
+            "description": self.__parameters.get_param("repo_description"),
+            "private": False,
+        }
+        repo_url = self.__repo_manager.create_repository(create_url, headers, data)
+
+        # Verify repository creation
+        if not self.__repo_manager.repo_exists(repo_url, headers):
+            raise Exception(f"Failed to verify the creation of repository '{repo_name}'.")
+
+        print(f"Repository created successfully: {repo_url}")
+        return repo_url
+
+    def run(self):
+        """
+        Implements the abstract method to handle the main workflow.
+        """
+        try:
+            repo_url = self.create_repository()
+            print(f"Repository management completed successfully. Repo URL: {repo_url}")
+        except Exception as e:
+            print(f"Error: {e}")
