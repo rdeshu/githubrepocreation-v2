@@ -1,7 +1,7 @@
-
 from github_manager.github_manager import GitHubManager
 from github_manager.repo_manager import RepoManager
 from github_manager.authentication import Authentication
+from branch_protection import BranchProtection  # Import the BranchProtection class
 
 
 class GitHubManagerImpl(GitHubManager):
@@ -58,25 +58,103 @@ class GitHubManagerImpl(GitHubManager):
         print(f"Repository created successfully: {repo_url}")
         return repo_url
 
+    def protect_branch(self, branch_name: str):
+        """
+        Protects the specified branch using the BranchProtection class.
+        :param branch_name: Name of the branch to protect.
+        """
+        # Retrieve parameters
+        github_token = self.__parameters.get_param("github_token")
+        organization_name = self.__parameters.get_param("organization_name")
+        repo_name = self.__parameters.get_param("repo_name")
+
+        # Initialize BranchProtection and protect the branch
+        branch_protection = BranchProtection(github_token, organization_name, repo_name)
+        branch_protection.protect_branch(branch_name)
+
     def run(self):
         """
         Implements the abstract method to handle the main workflow.
         """
         try:
+            # Step 1: Create the repository
             repo_url = self.create_repository()
+
+            # Step 2: Get branch name from user
+            branch_name = input("Enter the branch name to protect (e.g., 'main'): ")
+
+            # Step 3: Protect the specified branch
+            self.protect_branch(branch_name)
+
             print(f"Repository management completed successfully. Repo URL: {repo_url}")
         except Exception as e:
             print(f"Error: {e}")
 
 
-######
-def repo_exists(self, url: str, headers: dict) -> bool:
-        """
-        Checks if a repository exists by sending a GET request to the GitHub API.
 
-        :param url: URL of the repository.
-        :param headers: Authentication headers.
-        :return: True if the repository exists, False otherwise.
+import requests
+
+class BranchProtection:
+    """
+    Handles the configuration of branch protection rules for a GitHub repository.
+    """
+
+    def __init__(self, github_token: str, organization_name: str, repo_name: str):
         """
-        response = requests.get(url, headers=headers)
-        return response.status_code == 200
+        Initializes the BranchProtection class with necessary parameters.
+        
+        :param github_token: Personal access token for GitHub API authentication.
+        :param organization_name: Name of the organization (optional, for personal repos use None).
+        :param repo_name: Name of the repository where branch protection will be applied.
+        """
+        self.github_token = github_token
+        self.organization_name = organization_name
+        self.repo_name = repo_name
+        self.api_base_url = "https://api.github.com"
+
+    def protect_branch(self, branch_name: str):
+        """
+        Configures branch protection rules for the specified branch.
+        
+        :param branch_name: Name of the branch to protect (e.g., 'main').
+        """
+        # Construct the API URL
+        if self.organization_name:
+            url = f"{self.api_base_url}/repos/{self.organization_name}/{self.repo_name}/branches/{branch_name}/protection"
+        else:
+            url = f"{self.api_base_url}/repos/{self.repo_name}/branches/{branch_name}/protection"
+
+        # Define the branch protection rules
+        protection_rules = {
+            "required_status_checks": {
+                "strict": True,
+                "contexts": []  # Add specific status checks here if needed
+            },
+            "enforce_admins": True,  # Enforce protection rules for admins
+            "required_pull_request_reviews": {
+                "dismiss_stale_reviews": True,
+                "require_code_owner_reviews": True,
+                "required_approving_review_count": 1
+            },
+            "restrictions": None  # No restrictions on who can push
+        }
+
+        # Set headers for the API request
+        headers = {
+            "Authorization": f"token {self.github_token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+
+        # Send the PUT request to apply branch protection rules
+        response = requests.put(url, json=protection_rules, headers=headers)
+
+        # Handle the response
+        if response.status_code == 200:
+            print(f"Branch protection applied successfully to '{branch_name}'!")
+        elif response.status_code == 403:
+            raise Exception(f"Permission denied to protect branch '{branch_name}'. Check your token and permissions.")
+        elif response.status_code == 404:
+            raise Exception(f"Branch '{branch_name}' or repository '{self.repo_name}' not found.")
+        else:
+            raise Exception(f"Failed to protect branch '{branch_name}'. Error: {response.json()}")
+
