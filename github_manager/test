@@ -52,3 +52,25 @@ class BranchProtectionManager:
             },
             "restrictions": None  # No restrictions on who can push
         }
+
+
+ def protect_branch(self, branch_name: str):
+        """
+        Protects the specified branch in the repository using default rules.
+
+        :param branch_name: Name of the branch to protect.
+        """
+        repo_name = self.__parameters.get_param("repo_name")
+        organization_name = self.__parameters.get_param("organization_name")
+        github_token = self.__parameters.get_param("github_token")
+
+        # Construct the base API URL
+        api_url = "https://api.github.com"
+        base_url = f"{api_url}/repos/{organization_name}/{repo_name}" if organization_name else f"{api_url}/repos/{repo_name}"
+
+        # Get headers and default rules
+        headers = self.__auth.get_headers()
+        rules = self.__branch_protection_manager.get_default_protection_rules()
+
+        # Apply branch protection
+        self.__branch_protection_manager.apply_branch_protection(base_url, headers, branch_name, rules)
